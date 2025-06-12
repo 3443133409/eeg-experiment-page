@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EEG 实验控制页面</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
+    h1 { text-align: center; color: #333; margin-bottom: 20px; }
+    .controls, .parameters { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .controls button { margin-right: 10px; padding: 8px 16px; font-size: 1em; }
+    .parameters label { display: inline-block; width: 120px; }
+    .parameters .param { margin-bottom: 10px; }
+    #stimulusCanvas { background: #222; display: block; margin: 0 auto; border-radius: 8px; }
+    #description { margin-top: 10px; font-size: 0.95em; color: #555; }
+    .info { margin-top: 10px; font-size: 0.9em; color: #444; }
+  </style>
+</head>
+<body>
+  <h1>🧠 EEG 实验控制平台</h1>
+
+  <div class="controls">
+    <label for="expSelect">实验范式：</label>
+    <select id="expSelect">
+      <option value="pushPullPerception">推拉知觉范式</option>
+      <option value="steadyStateContrast">稳态对比度响应范式</option>
+      <option value="monocularLearning">单眼知觉学习范式</option>
+      <option value="binocularInteraction">双眼交互范式</option>
+      <option value="centralPeripheralSSVEP">中央与周边SSVEP范式</option>
+      <option value="nonlinearVision">非线性视觉恢复范式</option>
+    </select>
+    <div id="description"></div>
+    <div style="margin-top:10px;">
+      <button id="startBtn">开始</button>
+      <button id="stopBtn" disabled>停止</button>
+      <button id="resetBtn">重置</button>
+    </div>
+  </div>
+
+  <div class="parameters">
+    <div class="param"><label>频率1 (Hz):</label><input type="range" id="frequency1" min="4" max="20" step="0.5"><span id="freq1Val"></span></div>
+    <div class="param"><label>频率2 (Hz):</label><input type="range" id="frequency2" min="4" max="20" step="0.5"><span id="freq2Val"></span></div>
+    <div class="param"><label>对比度:</label><input type="range" id="contrast" min="0.1" max="1" step="0.05"><span id="contrastVal"></span></div>
+    <div class="param"><label>时长 (s):</label><input type="range" id="duration" min="5" max="120" step="5"><span id="durationVal"></span></div>
+    <div class="param"><label>重复次数:</label><input type="number" id="repetitions" min="1" max="10"><span></span></div>
+    <div class="param"><label>休息间隔 (s):</label><input type="range" id="restInterval" min="1" max="20" step="1"><span id="restVal"></span></div>
+    <div class="param"><label>空间频率:</label><input type="range" id="spatialFreq" min="1" max="20" step="0.5"><span id="spatialVal"></span></div>
+    <div class="param"><label>视距 (cm):</label><input type="range" id="viewingDistance" min="30" max="100" step="1"><span id="viewVal"></span></div>
+    <div class="param"><label>左眼优势:</label><input type="checkbox" id="eyeDominance"></div>
+    <div class="param"><label>启用运动:</label><input type="checkbox" id="motionEnabled"></div>
+    <div class="param"><label>运动方向:</label>
+      <label><input type="radio" name="motionDir" value="horizontal" checked> 水平</label>
+      <label><input type="radio" name="motionDir" value="vertical"> 垂直</label>
+    </div>
+    <div class="param"><label>运动速度:</label><input type="range" id="motionSpeed" min="0" max="5" step="0.1"><span id="motionVal"></span></div>
+  </div>
+
+  <canvas id="stimulusCanvas" width="600" height="300"></canvas>
+  <div class="info" id="info"></div>
+
+  <script>
+    // 参数与描述字典
+    const experimentDescriptions = {
+      pushPullPerception: "推拉知觉范式: 同时刺激两只眼睛，加强弱视眼信号，同时抑制健康眼信号。",
+      steadyStateContrast: "稳态对比度响应范式: 呈现不同对比度水平的视觉刺激，记录脑电反应。",
+      monocularLearning: "单眼知觉学习范式: 使用重复的定向辨别或对比度检测任务，专门训练弱视眼。",
+      binocularInteraction: "双眼交互范式: 使用fMRI和特定刺激条件评估视觉皮层中的兴奋性和抑制性贡献。",
+      centralPeripheralSSVEP: "中央与周边SSVEP范式: 在视野的不同区域呈现视觉刺激，评估不同区域的视觉处理。",
+      nonlinearVision: "非线性视觉恢复范式: 使用特定的刺激序列和分析方法评估视觉系统的非线性特性。"
+    };
+
+    // 全局参数对象
+    let params = {
+      frequency1: 8.0,
+      frequency2: 12.0,
+      contrast: 0.5,
+      duration: 20,
+      repetitions: 1,
+      restInterval: 5,
+      spatialFreq: 10,
+      viewingDistance: 57,
+      eyeDominance: true,
+      motionEnabled: false,
+      motionDirection: 'horizontal',
+      motionSpeed: 1.0
+    };
+    let isRunning = false;
+    let startTime = 0;
+    const canvas = document.getElementById('stimulusCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI 元素
+    const expSelect = document.getElementById('expSelect');
+    const descEl = document.getElementById('description');
+    const infoEl = document.getElementById('info');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    // 绑定参数输入
+    function bindParam(id, key, displayId, transform=(v=>v)) {
+      const el = document.getElementById(id);
+      const disp = document.getElementById(displayId);
+      function update() {
+        params[key] = transform(el.type==='checkbox'?el.checked:parseFloat(el.value));
+        if(disp) disp.textContent = el.type==='checkbox'?el.checked:el.value + (displayId==='contrastVal'? '':'' );
+      }
+      el.addEventListener('input', update);
+      update();
+    }
+    bindParam('frequency1','frequency1','freq1Val');
+    bindParam('frequency2','frequency2','freq2Val');
+    bindParam('contrast','contrast','contrastVal',v=>v);
+    bindParam('duration','duration','durationVal');
+    bindParam('repetitions','repetitions',null); document.getElementById('repetitions').addEventListener('change', e=>params.repetitions=parseInt(e.target.value));
+    bindParam('restInterval','restInterval','restVal');
+    bindParam('spatialFreq','spatialFreq','spatialVal');
+    bindParam('viewingDistance','viewingDistance','viewVal');
+    bindParam('eyeDominance','eyeDominance',null);
+    bindParam('motionEnabled','motionEnabled',null);
+    document.getElementsByName('motionDir').forEach(radio=>radio.addEventListener('change', e=>params.motionDirection=e.target.value));
+    bindParam('motionSpeed','motionSpeed','motionVal');
+
+    expSelect.addEventListener('change', ()=>{
+      descEl.textContent = experimentDescriptions[expSelect.value];
+    });
+    descEl.textContent = experimentDescriptions[expSelect.value];
+
+    // 渲染循环
+    function render() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(!isRunning) { requestAnimationFrame(render); return; }
+      const t = (Date.now()-startTime)/1000;
+      const freq1 = params.frequency1, freq2 = params.frequency2;
+      const contrast = params.contrast;
+      const dir = params.motionDirection;
+      const speed = params.motionSpeed;
+      const offset = (t*speed)%1;
+      switch(expSelect.value) {
+        case 'pushPullPerception':
+          drawGrating(0,0,canvas.width/2,canvas.height,freq1,contrast,true,dir,offset);
+          drawGrating(canvas.width/2,0,canvas.width/2,canvas.height,freq2,contrast,false,dir,offset);
+          break;
+        case 'steadyStateContrast':
+          drawGrating(0,0,canvas.width,canvas.height,freq1,contrast,true,dir,offset);
+          drawCircle(canvas.width/2,canvas.height/2,20);
+          break;
+        case 'monocularLearning':
+          drawGrating(0,0,canvas.width,canvas.height,freq1,contrast,true,dir,offset);
+          ctx.fillStyle='white'; ctx.font='20px sans-serif'; ctx.fillText(params.eyeDominance?'左眼训练':'右眼训练',10,30);
+          break;
+        case 'binocularInteraction':
+          drawGrating(0,0,canvas.width/2,canvas.height,freq1,contrast,true,dir,offset);
+          drawGrating(canvas.width/2,0,canvas.width/2,canvas.height,freq2,contrast,false,dir,offset);
+          break;
+        case 'centralPeripheralSSVEP':
+          drawFlickerCircle(canvas.width/2,canvas.height/2,canvas.height*0.4,freq2,contrast);
+          drawFlickerCircle(canvas.width/2,canvas.height/2,canvas.height*0.2,freq1,contrast);
+          break;
+        case 'nonlinearVision':
+          for(let i=0;i<4;i++){
+            drawGrating(0,0,canvas.width,canvas.height,
+              params.frequency1+i, contrast/(i+1), i%2===0, dir, offset + i*0.25);
+          }
+          break;
+      }
+      // 信息展示
+      const elapsed = Math.floor(t);
+      infoEl.textContent = `时间: ${elapsed}s / ${params.duration}s`;
+      if(elapsed>=params.duration) stopExperiment();
+      else requestAnimationFrame(render);
+    }
+
+    function drawGrating(x,y,w,h,freq,contrast,vertical,dir,off) {
+      const imgData = ctx.createImageData(w,h);
+      for(let i=0;i<w;i++) for(let j=0;j<h;j++){
+        const p = vertical? (i/w): (j/h);
+        const pos = (p + off)%(1.0);
+        const v = Math.sin(2*Math.PI*freq*pos);
+        const intensity = (v*contrast*0.5+0.5)*255;
+        const idx = (j*w+i)*4;
+        imgData.data[idx]=imgData.data[idx+1]=imgData.data[idx+2]=intensity;
+        imgData.data[idx+3]=255;
+      }
+      ctx.putImageData(imgData,x,y);
+    }
+    function drawCircle(cx,cy,r){ ctx.strokeStyle='red'; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.stroke(); }
+    function drawFlickerCircle(cx,cy,r,freq,contrast){ const t=(Date.now()-startTime)/1000; const alpha=(Math.sin(2*Math.PI*freq*t)*0.5+0.5)*contrast; ctx.fillStyle=`rgba(255,255,255,${alpha})`; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.fill(); }
+
+    // 控制函数
+    function startExperiment(){ if(isRunning) return; isRunning=true; startTime=Date.now(); stopBtn.disabled=false; startBtn.disabled=true; render(); }
+    function stopExperiment(){ isRunning=false; stopBtn.disabled=true; startBtn.disabled=false; }
+    function resetExperiment(){ stopExperiment(); ctx.clearRect(0,0,canvas.width,canvas.height); infoEl.textContent=''; }
+
+    startBtn.addEventListener('click', startExperiment);
+    stopBtn.addEventListener('click', stopExperiment);
+    resetBtn.addEventListener('click', resetExperiment);
+  </script>
+</body>
+</html>
+
