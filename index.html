@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EEG 实验控制页面</title>
   <style>
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-      margin: 0; padding: 20px; background: #f0f2f5; 
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
     h1 { text-align: center; color: #333; margin-bottom: 20px; }
     .controls, .parameters {
       background: #fff;
@@ -17,43 +14,16 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       margin-bottom: 20px;
     }
-    .controls button, .controls select { 
-      font-size: 0.9em; 
-    }
-    .controls button {
-      margin-right: 8px;
-      padding: 6px 12px;
-    }
-    .parameters .param {
-      margin-bottom: 10px;
-      font-size: 0.85em;
-    }
-    .parameters label { display: inline-block; width: 110px; }
-    .parameters input[type=range],
-    .parameters input[type=number],
-    .parameters select {
-      width: 140px;
-      vertical-align: middle;
-    }
-    .parameters span {
-      display: inline-block; width: 40px; text-align: right;
-    }
-    #restCountdown {
-      font-size: 1.2em; color: orange; margin-bottom: 10px;
-    }
-    #stimulusCanvas {
-      background: #222;
-      display: block;
-      margin: 0 auto 10px;
-      border-radius: 8px;
-    }
-    #description { margin-top: 8px; font-size: 0.95em; color: #555; }
-    .info { margin-top: 8px; font-size: 0.9em; color: #444; }
+    .controls button { margin-right: 10px; padding: 8px 16px; font-size: 1em; }
+    .parameters label { display: inline-block; width: 120px; }
+    .parameters .param { margin-bottom: 10px; }
+    #stimulusCanvas { background: #222; display: block; margin: 0 auto; border-radius: 8px; }
+    #description { margin-top: 10px; font-size: 0.95em; color: #555; }
+    .info { margin-top: 10px; font-size: 0.9em; color: #444; }
   </style>
 </head>
 <body>
   <h1>EEG 实验控制平台</h1>
-
   <div class="controls">
     <label for="expSelect">实验范式:</label>
     <select id="expSelect">
@@ -69,9 +39,7 @@
       <button id="startBtn">开始</button>
       <button id="stopBtn" disabled>停止</button>
       <button id="resetBtn">重置</button>
-      <button id="reportBtn" disabled>查看报告</button>
     </div>
-    <div id="restCountdown" style="display:none;">休息中: <span id="restValCountdown"></span>s</div>
   </div>
 
   <div class="parameters">
@@ -96,13 +64,9 @@
       <span id="durationVal"></span>
     </div>
     <div class="param">
-      <label>刺激大小 (px):</label>
-      <input type="range" id="stimulusSize" min="100" max="600" step="10" value="200">
-      <span id="stimulusSizeVal"></span>
-    </div>
-    <div class="param">
       <label>重复次数:</label>
       <input type="number" id="repetitions" min="1" max="10" value="1">
+      <span></span>
     </div>
     <div class="param">
       <label>休息间隔 (s):</label>
@@ -120,8 +84,8 @@
       <span id="viewVal"></span>
     </div>
     <div class="param">
-      <label>左眼为优势:</label>
-      <input type="checkbox" id="eyeDominance" checked>
+      <label>左眼优势:</label>
+      <input type="checkbox" id="eyeDominance">
     </div>
     <div class="param">
       <label>启用运动:</label>
@@ -139,11 +103,11 @@
     </div>
   </div>
 
-  <canvas id="stimulusCanvas" width="200" height="100"></canvas>
+  <canvas id="stimulusCanvas" width="600" height="300"></canvas>
   <div class="info" id="info"></div>
 
   <script>
-    // 描述字典
+    // 参数与描述字典
     const experimentDescriptions = {
       pushPullPerception: "推拉知觉范式: 同时刺激两只眼睛，加强弱视眼信号，同时抑制健康眼信号。",
       steadyStateContrast: "稳态对比度响应范式: 呈现不同对比度水平的视觉刺激，记录脑电反应。",
@@ -153,229 +117,135 @@
       nonlinearVision: "非线性视觉恢复范式: 使用特定的刺激序列和分析方法评估视觉系统的非线性特性。"
     };
 
-    // 全局参数
+    // 全局参数对象
     let params = {
       frequency1: 8.0,
       frequency2: 12.0,
       contrast: 0.5,
-      duration: 20.0,
-      stimulusSize: 200,
+      duration: 20,
       repetitions: 1,
-      restInterval: 5.0,
-      spatialFreq: 10.0,
-      viewingDistance: 57.0,
+      restInterval: 5,
+      spatialFreq: 10,
+      viewingDistance: 57,
       eyeDominance: true,
       motionEnabled: false,
       motionDirection: 'horizontal',
       motionSpeed: 1.0
     };
     let isRunning = false;
-    let currentRep = 0;
     let startTime = 0;
-    let restTimer = null;
-    let trialTimer = null;
-
-    // 元素
     const canvas = document.getElementById('stimulusCanvas');
-    const ctx    = canvas.getContext('2d');
-    const expSelect  = document.getElementById('expSelect');
-    const descEl     = document.getElementById('description');
-    const infoEl     = document.getElementById('info');
-    const restEl     = document.getElementById('restCountdown');
-    const restValCD  = document.getElementById('restValCountdown');
-    const startBtn   = document.getElementById('startBtn');
-    const stopBtn    = document.getElementById('stopBtn');
-    const resetBtn   = document.getElementById('resetBtn');
-    const reportBtn  = document.getElementById('reportBtn');
+    const ctx = canvas.getContext('2d');
 
-    // 绑定输入工具
-    function bindParam(id, key, dispId, transform=v=>v) {
-      const el = document.getElementById(id);
-      const disp = dispId && document.getElementById(dispId);
+    // UI 元素
+    const expSelect = document.getElementById('expSelect');
+    const descEl    = document.getElementById('description');
+    const infoEl    = document.getElementById('info');
+    const startBtn  = document.getElementById('startBtn');
+    const stopBtn   = document.getElementById('stopBtn');
+    const resetBtn  = document.getElementById('resetBtn');
+
+    // 绑定参数输入
+    function bindParam(id, key, displayId, transform = v => v) {
+      const el   = document.getElementById(id);
+      const disp = displayId ? document.getElementById(displayId) : null;
       function update() {
-        params[key] = transform(el.type==='checkbox'?el.checked: parseFloat(el.value));
-        if (disp) disp.textContent = el.type==='checkbox'?el.checked:el.value;
-        if (id==='stimulusSize') resizeCanvas();
+        params[key] = transform(el.type === 'checkbox' ? el.checked : parseFloat(el.value));
+        if (disp) disp.textContent = el.type === 'checkbox' ? el.checked : el.value;
       }
       el.addEventListener('input', update);
       update();
     }
-    bindParam('frequency1','frequency1','freq1Val');
-    bindParam('frequency2','frequency2','freq2Val');
-    bindParam('contrast','contrast','contrastVal');
-    bindParam('duration','duration','durationVal');
-    bindParam('stimulusSize','stimulusSize','stimulusSizeVal', v=>parseInt(v));
-    bindParam('repetitions','repetitions',null, v=>parseInt(v,10));
-    bindParam('restInterval','restInterval','restVal');
-    bindParam('spatialFreq','spatialFreq','spatialVal');
+    bindParam('frequency1', 'frequency1', 'freq1Val');
+    bindParam('frequency2', 'frequency2', 'freq2Val');
+    bindParam('contrast',   'contrast',   'contrastVal');
+    bindParam('duration',   'duration',   'durationVal');
+    bindParam('repetitions','repetitions',null, v => parseInt(v, 10));
+    document.getElementById('repetitions')
+            .addEventListener('change', e => params.repetitions = parseInt(e.target.value, 10));
+    bindParam('restInterval',   'restInterval',   'restVal');
+    bindParam('spatialFreq',    'spatialFreq',    'spatialVal');
     bindParam('viewingDistance','viewingDistance','viewVal');
-    bindParam('eyeDominance','eyeDominance',null, v=>v);
-    bindParam('motionEnabled','motionEnabled',null, v=>v);
-    document.querySelectorAll("input[name='motionDir']")
-      .forEach(r => r.addEventListener('change', e => params.motionDirection = e.target.value));
-    );
-    bindParam('motionSpeed','motionSpeed','motionVal');
+    bindParam('eyeDominance',   'eyeDominance',   null, v => v);
+    bindParam('motionEnabled',  'motionEnabled',  null, v => v);
+    document.getElementsByName('motionDir')
+            .forEach(r => r.addEventListener('change', e => params.motionDirection = e.target.value));
+    bindParam('motionSpeed', 'motionSpeed', 'motionVal');
 
-    // 选择实验时更新描述 & 重置
-    expSelect.addEventListener('change', ()=> {
+    // 每次切换范式时更新描述
+    expSelect.addEventListener('change', () => {
       descEl.textContent = experimentDescriptions[expSelect.value];
-      if (expSelect.value==='centralPeripheralSSVEP') {
-        descEl.textContent += ` 请与屏幕保持约 ${Math.round(params.viewingDistance)} cm 距离，以获得 8° 中央视野。`;
-      }
-      resetExperiment();
     });
     descEl.textContent = experimentDescriptions[expSelect.value];
 
-    // 调整画布尺寸
-    function resizeCanvas() {
-      canvas.width  = params.stimulusSize;
-      canvas.height = params.stimulusSize * 0.5;
-    }
-    resizeCanvas();
-
-    // 渲染一个周期
+    // 渲染循环
     function render() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      if (!isRunning) return;
+      if(!isRunning) { requestAnimationFrame(render); return; }
       const t = (Date.now()-startTime)/1000;
-      const off = (t * params.motionSpeed) % 1;
-      const dir = params.motionDirection;
       const freq1 = params.frequency1, freq2 = params.frequency2;
-      const ctr = params.contrast;
+      const contrast = params.contrast;
+      const dir = params.motionDirection;
+      const speed = params.motionSpeed;
+      const offset = (t*speed)%1;
       switch(expSelect.value) {
         case 'pushPullPerception':
-          drawGrating(0,0,canvas.width/2,canvas.height,freq1,ctr,true,dir,off);
-          drawGrating(canvas.width/2,0,canvas.width/2,canvas.height,freq2,ctr,false,dir,off);
+          drawGrating(0,0,canvas.width/2,canvas.height,freq1,contrast,true,dir,offset);
+          drawGrating(canvas.width/2,0,canvas.width/2,canvas.height,freq2,contrast,false,dir,offset);
           break;
         case 'steadyStateContrast':
-          drawGrating(0,0,canvas.width,canvas.height,freq1,ctr,true,dir,off);
+          drawGrating(0,0,canvas.width,canvas.height,freq1,contrast,true,dir,offset);
           drawCircle(canvas.width/2,canvas.height/2,20);
           break;
         case 'monocularLearning':
-          drawGrating(0,0,canvas.width,canvas.height,freq1,ctr,true,dir,off);
-          ctx.fillStyle='white';
-          ctx.font='20px sans-serif';
-          ctx.fillText(params.eyeDominance?'左眼训练':'右眼训练',10,30);
+          drawGrating(0,0,canvas.width,canvas.height,freq1,contrast,true,dir,offset);
+          ctx.fillStyle='white'; ctx.font='20px sans-serif'; ctx.fillText(params.eyeDominance?'左眼训练':'右眼训练',10,30);
           break;
         case 'binocularInteraction':
-          drawGrating(0,0,canvas.width/2,canvas.height,freq1,ctr,true,dir,off);
-          drawGrating(canvas.width/2,0,canvas.width/2,canvas.height,freq2,ctr,false,dir,off);
-          drawCircle(canvas.width/2,canvas.height/2,8);
+          drawGrating(0,0,canvas.width/2,canvas.height,freq1,contrast,true,dir,offset);
+          drawGrating(canvas.width/2,0,canvas.width/2,canvas.height,freq2,contrast,false,dir,offset);
           break;
         case 'centralPeripheralSSVEP':
-          drawFlickerCircle(canvas.width/2,canvas.height/2,canvas.height*0.4,freq2,ctr,off);
-          drawFlickerCircle(canvas.width/2,canvas.height/2,canvas.height*0.2,freq1,ctr,off);
+          drawFlickerCircle(canvas.width/2,canvas.height/2,canvas.height*0.4,freq2,contrast);
+          drawFlickerCircle(canvas.width/2,canvas.height/2,canvas.height*0.2,freq1,contrast);
           break;
         case 'nonlinearVision':
           for(let i=0;i<4;i++){
             drawGrating(0,0,canvas.width,canvas.height,
-              params.frequency1+i, ctr/(i+1), i%2===0, dir, off + i*0.25);
+              params.frequency1+i, contrast/(i+1), i%2===0, dir, offset + i*0.25);
           }
           break;
       }
+      // 信息展示
+      const elapsed = Math.floor(t);
+      infoEl.textContent = 时间: ${elapsed}s / ${params.duration}s;
+      if(elapsed>=params.duration) stopExperiment();
+      else requestAnimationFrame(render);
     }
 
-    // 绘图函数
     function drawGrating(x,y,w,h,freq,contrast,vertical,dir,off) {
-      const img = ctx.createImageData(w,h);
+      const imgData = ctx.createImageData(w,h);
       for(let i=0;i<w;i++) for(let j=0;j<h;j++){
-        const p = vertical?(i/w):(j/h);
-        let pos = (p + off) % 1;
+        const p = vertical? (i/w): (j/h);
+        const pos = (p + off)%(1.0);
         const v = Math.sin(2*Math.PI*freq*pos);
         const intensity = (v*contrast*0.5+0.5)*255;
         const idx = (j*w+i)*4;
-        img.data[idx]=img.data[idx+1]=img.data[idx+2]=intensity;
-        img.data[idx+3]=255;
+        imgData.data[idx]=imgData.data[idx+1]=imgData.data[idx+2]=intensity;
+        imgData.data[idx+3]=255;
       }
-      ctx.putImageData(img,x,y);
+      ctx.putImageData(imgData,x,y);
     }
-    function drawCircle(cx,cy,r){
-      ctx.strokeStyle='red';
-      ctx.beginPath();
-      ctx.arc(cx,cy,r,0,2*Math.PI);
-      ctx.stroke();
-    }
-    function drawFlickerCircle(cx,cy,r,freq,contrast,off){
-      const t = (Date.now()-startTime)/1000;
-      const alpha = (Math.sin(2*Math.PI*freq*t+off*2*Math.PI)*0.5+0.5)*contrast;
-      ctx.beginPath();
-      ctx.arc(cx,cy,r,0,2*Math.PI);
-      ctx.fillStyle=`rgba(255,255,255,${alpha})`;
-      ctx.fill();
-    }
+    function drawCircle(cx,cy,r){ ctx.strokeStyle='red'; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.stroke(); }
+    function drawFlickerCircle(cx,cy,r,freq,contrast){ const t=(Date.now()-startTime)/1000; const alpha=(Math.sin(2*Math.PI*freq*t)*0.5+0.5)*contrast; ctx.fillStyle=rgba(255,255,255,${alpha}); ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.fill(); }
 
-    // 实验序列控制
-    function startExperiment(){
-      if (isRunning) return;
-      isRunning = true;
-      startBtn.disabled = true;
-      stopBtn.disabled  = false;
-      reportBtn.disabled = true;
-      currentRep = 1;
-      runTrial();
-    }
-    function runTrial(){
-      startTime = Date.now();
-      render();
-      trialTimer = setInterval(()=>{
-        render();
-        const elapsed = (Date.now()-startTime)/1000;
-        infoEl.textContent = `第 ${currentRep}/${params.repetitions} 次  时间: ${Math.floor(elapsed)}/${params.duration}s`;
-        if (elapsed >= params.duration) {
-          clearInterval(trialTimer);
-          if (currentRep < params.repetitions) {
-            startRest();
-          } else {
-            endExperiment();
-          }
-        }
-      }, 1000/30);
-    }
-    function startRest(){
-      isRunning = false;
-      let sec = params.restInterval;
-      restEl.style.display = 'block';
-      restValCD.textContent = sec;
-      restTimer = setInterval(()=>{
-        sec--;
-        restValCD.textContent = sec;
-        if (sec<=0){
-          clearInterval(restTimer);
-          restEl.style.display = 'none';
-          currentRep++;
-          isRunning = true;
-          runTrial();
-        }
-      }, 1000);
-    }
-    function stopExperiment(){
-      clearInterval(trialTimer);
-      clearInterval(restTimer);
-      isRunning = false;
-      startBtn.disabled = false;
-      stopBtn.disabled  = true;
-    }
-    function resetExperiment(){
-      stopExperiment();
-      infoEl.textContent = '';
-      restEl.style.display = 'none';
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-    }
-    function endExperiment(){
-      stopExperiment();
-      reportBtn.disabled = false;
-      infoEl.textContent = '实验完成，点击“查看报告”。';
-    }
+    // 控制函数
+    function startExperiment(){ if(isRunning) return; isRunning=true; startTime=Date.now(); stopBtn.disabled=false; startBtn.disabled=true; render(); }
+    function stopExperiment(){ isRunning=false; stopBtn.disabled=true; startBtn.disabled=false; }
+    function resetExperiment(){ stopExperiment(); ctx.clearRect(0,0,canvas.width,canvas.height); infoEl.textContent=''; }
 
-    // 查看报告（示例计算 SNR）
-    reportBtn.addEventListener('click', ()=>{
-      // 这里可以实现真实 SNR 计算
-      alert('SNR报告（示例）：\n频率1 SNR=12.3 dB\n频率2 SNR=10.8 dB');
-    });
-
-    // 按钮绑定
     startBtn.addEventListener('click', startExperiment);
-    stopBtn.addEventListener('click', stopExperiment);
+    stopBtn.addEventListener('click',  stopExperiment);
     resetBtn.addEventListener('click', resetExperiment);
   </script>
 </body>
