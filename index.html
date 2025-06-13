@@ -64,6 +64,11 @@
       <span id="durationVal"></span>
     </div>
     <div class="param">
+      <label>重复次数:</label>
+      <input type="number" id="repetitions" min="1" max="10" value="1">
+      <span></span>
+    </div>
+    <div class="param">
       <label>休息间隔 (s):</label>
       <input type="range" id="restInterval" min="1" max="20" step="1" value="5">
       <span id="restVal"></span>
@@ -78,6 +83,24 @@
       <input type="range" id="viewingDistance" min="30" max="100" step="1" value="57">
       <span id="viewVal"></span>
     </div>
+    <div class="param">
+      <label>左眼优势:</label>
+      <input type="checkbox" id="eyeDominance">
+    </div>
+    <div class="param">
+      <label>启用运动:</label>
+      <input type="checkbox" id="motionEnabled">
+    </div>
+    <div class="param">
+      <label>运动方向:</label>
+      <label><input type="radio" name="motionDir" value="horizontal" checked> 水平</label>
+      <label><input type="radio" name="motionDir" value="vertical"> 垂直</label>
+    </div>
+    <div class="param">
+      <label>运动速度:</label>
+      <input type="range" id="motionSpeed" min="0" max="5" step="0.1" value="1">
+      <span id="motionVal"></span>
+    </div>
   </div>
 
   <canvas id="stimulusCanvas" width="600" height="300"></canvas>
@@ -88,7 +111,7 @@
     const experimentDescriptions = {
       pushPullPerception: "推拉知觉范式: 同时刺激两只眼睛，加强弱视眼信号，同时抑制健康眼信号。",
       steadyStateContrast: "稳态对比度响应范式: 呈现不同对比度水平的视觉刺激，记录脑电反应。",
-      monocularLearning: "单眼知觉学习范式: 使用重复的定向辨别或对比度检测任务，专门训练单只眼睛（右眼训练）。",
+      monocularLearning: "单眼知觉学习范式: 使用重复的定向辨别或对比度检测任务，专门训练弱视眼。",
       binocularInteraction: "双眼交互范式: 使用fMRI和特定刺激条件评估视觉皮层中的兴奋性和抑制性贡献。",
       centralPeripheralSSVEP: "中央与周边SSVEP范式: 在视野的不同区域呈现视觉刺激，评估不同区域的视觉处理。",
       nonlinearVision: "非线性视觉恢复范式: 使用特定的刺激序列和分析方法评估视觉系统的非线性特性。"
@@ -100,9 +123,14 @@
       frequency2: 12.0,
       contrast: 0.5,
       duration: 20,
+      repetitions: 1,
       restInterval: 5,
       spatialFreq: 10,
-      viewingDistance: 57
+      viewingDistance: 57,
+      eyeDominance: true,
+      motionEnabled: false,
+      motionDirection: 'horizontal',
+      motionSpeed: 1.0
     };
     let isRunning = false;
     let startTime = 0;
@@ -122,19 +150,27 @@
       const el   = document.getElementById(id);
       const disp = displayId ? document.getElementById(displayId) : null;
       function update() {
-        params[key] = transform(el.value);
-        if (disp) disp.textContent = el.value;
+        params[key] = transform(el.type === 'checkbox' ? el.checked : parseFloat(el.value));
+        if (disp) disp.textContent = el.type === 'checkbox' ? el.checked : el.value;
       }
       el.addEventListener('input', update);
       update();
     }
-    bindParam('frequency1', 'frequency1', 'freq1Val', parseFloat);
-    bindParam('frequency2', 'frequency2', 'freq2Val', parseFloat);
-    bindParam('contrast',   'contrast',   'contrastVal', parseFloat);
-    bindParam('duration',   'duration',   'durationVal', parseInt);
-    bindParam('restInterval','restInterval','restVal', parseInt);
-    bindParam('spatialFreq', 'spatialFreq', 'spatialVal', parseFloat);
-    bindParam('viewingDistance','viewingDistance','viewVal', parseInt);
+    bindParam('frequency1', 'frequency1', 'freq1Val');
+    bindParam('frequency2', 'frequency2', 'freq2Val');
+    bindParam('contrast',   'contrast',   'contrastVal');
+    bindParam('duration',   'duration',   'durationVal');
+    bindParam('repetitions','repetitions',null, v => parseInt(v, 10));
+    document.getElementById('repetitions')
+            .addEventListener('change', e => params.repetitions = parseInt(e.target.value, 10));
+    bindParam('restInterval',   'restInterval',   'restVal');
+    bindParam('spatialFreq',    'spatialFreq',    'spatialVal');
+    bindParam('viewingDistance','viewingDistance','viewVal');
+    bindParam('eyeDominance',   'eyeDominance',   null, v => v);
+    bindParam('motionEnabled',  'motionEnabled',  null, v => v);
+    document.getElementsByName('motionDir')
+            .forEach(r => r.addEventListener('change', e => params.motionDirection = e.target.value));
+    bindParam('motionSpeed', 'motionSpeed', 'motionVal');
 
     // 每次切换范式时更新描述
     expSelect.addEventListener('change', () => {
@@ -145,112 +181,71 @@
     // 渲染循环
     function render() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      if (!isRunning) {
-        requestAnimationFrame(render);
-        return;
-      }
-      const t = (Date.now() - startTime) / 1000;
+      if(!isRunning) { requestAnimationFrame(render); return; }
+      const t = (Date.now()-startTime)/1000;
       const freq1 = params.frequency1, freq2 = params.frequency2;
       const contrast = params.contrast;
-
-      switch (expSelect.value) {
+      const dir = params.motionDirection;
+      const speed = params.motionSpeed;
+      const offset = (t*speed)%1;
+      switch(expSelect.value) {
         case 'pushPullPerception':
-          drawGrating(0, 0, canvas.width/2, canvas.height, freq1, contrast, true);
-          drawGrating(canvas.width/2, 0, canvas.width/2, canvas.height, freq2, contrast, false);
+          drawGrating(0,0,canvas.width/2,canvas.height,freq1,contrast,true,dir,offset);
+          drawGrating(canvas.width/2,0,canvas.width/2,canvas.height,freq2,contrast,false,dir,offset);
           break;
         case 'steadyStateContrast':
-          drawGrating(0, 0, canvas.width, canvas.height, freq1, contrast, true);
-          drawCircle(canvas.width/2, canvas.height/2, 20);
+          drawGrating(0,0,canvas.width,canvas.height,freq1,contrast,true,dir,offset);
+          drawCircle(canvas.width/2,canvas.height/2,20);
           break;
         case 'monocularLearning':
-          drawGrating(0, 0, canvas.width, canvas.height, freq1, contrast, true);
-          ctx.fillStyle = 'white';
-          ctx.font = '20px sans-serif';
-          ctx.fillText('右眼训练', 10, 30);
+          drawGrating(0,0,canvas.width,canvas.height,freq1,contrast,true,dir,offset);
+          ctx.fillStyle='white'; ctx.font='20px sans-serif'; ctx.fillText(params.eyeDominance?'左眼训练':'右眼训练',10,30);
           break;
         case 'binocularInteraction':
-          drawGrating(0, 0, canvas.width/2, canvas.height, freq1, contrast, true);
-          drawGrating(canvas.width/2, 0, canvas.width/2, canvas.height, freq2, contrast, false);
+          drawGrating(0,0,canvas.width/2,canvas.height,freq1,contrast,true,dir,offset);
+          drawGrating(canvas.width/2,0,canvas.width/2,canvas.height,freq2,contrast,false,dir,offset);
           break;
         case 'centralPeripheralSSVEP':
-          drawFlickerCircle(canvas.width/2, canvas.height/2, canvas.height*0.4, freq2, contrast);
-          drawFlickerCircle(canvas.width/2, canvas.height/2, canvas.height*0.2, freq1, contrast);
+          drawFlickerCircle(canvas.width/2,canvas.height/2,canvas.height*0.4,freq2,contrast);
+          drawFlickerCircle(canvas.width/2,canvas.height/2,canvas.height*0.2,freq1,contrast);
           break;
         case 'nonlinearVision':
-          for (let i = 0; i < 4; i++) {
-            drawGrating(
-              0, 0, canvas.width, canvas.height,
-              params.frequency1 + i, contrast / (i + 1),
-              i % 2 === 0
-            );
+          for(let i=0;i<4;i++){
+            drawGrating(0,0,canvas.width,canvas.height,
+              params.frequency1+i, contrast/(i+1), i%2===0, dir, offset + i*0.25);
           }
           break;
       }
-
+      // 信息展示
       const elapsed = Math.floor(t);
       infoEl.textContent = `时间: ${elapsed}s / ${params.duration}s`;
-      if (elapsed >= params.duration) {
-        stopExperiment();
-      } else {
-        requestAnimationFrame(render);
+      if(elapsed>=params.duration) stopExperiment();
+      else requestAnimationFrame(render);
+    }
+
+    function drawGrating(x,y,w,h,freq,contrast,vertical,dir,off) {
+      const imgData = ctx.createImageData(w,h);
+      for(let i=0;i<w;i++) for(let j=0;j<h;j++){
+        const p = vertical? (i/w): (j/h);
+        const pos = (p + off)%(1.0);
+        const v = Math.sin(2*Math.PI*freq*pos);
+        const intensity = (v*contrast*0.5+0.5)*255;
+        const idx = (j*w+i)*4;
+        imgData.data[idx]=imgData.data[idx+1]=imgData.data[idx+2]=intensity;
+        imgData.data[idx+3]=255;
       }
+      ctx.putImageData(imgData,x,y);
     }
-
-    function drawGrating(x, y, w, h, freq, contrast, vertical) {
-      const imgData = ctx.createImageData(w, h);
-      for (let i = 0; i < w; i++) {
-        for (let j = 0; j < h; j++) {
-          const p = vertical ? (i / w) : (j / h);
-          const v = Math.sin(2 * Math.PI * freq * p);
-          const intensity = (v * contrast * 0.5 + 0.5) * 255;
-          const idx = (j * w + i) * 4;
-          imgData.data[idx] = imgData.data[idx + 1] = imgData.data[idx + 2] = intensity;
-          imgData.data[idx + 3] = 255;
-        }
-      }
-      ctx.putImageData(imgData, x, y);
-    }
-
-    function drawCircle(cx, cy, r) {
-      ctx.strokeStyle = 'red';
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-      ctx.stroke();
-    }
-
-    function drawFlickerCircle(cx, cy, r, freq, contrast) {
-      const t = (Date.now() - startTime) / 1000;
-      const alpha = (Math.sin(2 * Math.PI * freq * t) * 0.5 + 0.5) * contrast;
-      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-      ctx.fill();
-    }
+    function drawCircle(cx,cy,r){ ctx.strokeStyle='red'; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.stroke(); }
+    function drawFlickerCircle(cx,cy,r,freq,contrast){ const t=(Date.now()-startTime)/1000; const alpha=(Math.sin(2*Math.PI*freq*t)*0.5+0.5)*contrast; ctx.fillStyle=`rgba(255,255,255,${alpha})`; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.fill(); }
 
     // 控制函数
-    function startExperiment() {
-      if (isRunning) return;
-      isRunning = true;
-      startTime = Date.now();
-      stopBtn.disabled = false;
-      startBtn.disabled = true;
-      render();
-    }
-
-    function stopExperiment() {
-      isRunning = false;
-      stopBtn.disabled = true;
-      startBtn.disabled = false;
-    }
-
-    function resetExperiment() {
-      stopExperiment();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      infoEl.textContent = '';
-    }
+    function startExperiment(){ if(isRunning) return; isRunning=true; startTime=Date.now(); stopBtn.disabled=false; startBtn.disabled=true; render(); }
+    function stopExperiment(){ isRunning=false; stopBtn.disabled=true; startBtn.disabled=false; }
+    function resetExperiment(){ stopExperiment(); ctx.clearRect(0,0,canvas.width,canvas.height); infoEl.textContent=''; }
 
     startBtn.addEventListener('click', startExperiment);
-    stopBtn.addEventListener('click', stopExperiment);
+    stopBtn.addEventListener('click',  stopExperiment);
     resetBtn.addEventListener('click', resetExperiment);
   </script>
 </body>
