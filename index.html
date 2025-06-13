@@ -7,7 +7,13 @@
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
     h1 { text-align: center; color: #333; margin-bottom: 20px; }
-    .controls, .parameters { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .controls, .parameters {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
     .controls button { margin-right: 10px; padding: 8px 16px; font-size: 1em; }
     .parameters label { display: inline-block; width: 120px; }
     .parameters .param { margin-bottom: 10px; }
@@ -17,10 +23,9 @@
   </style>
 </head>
 <body>
-  <h1>🧠  EEG实验控制平台</h1>
-
+  <h1>EEG 实验控制平台</h1>
   <div class="controls">
-    <label for="expSelect">实验范式：</label>
+    <label for="expSelect">实验范式:</label>
     <select id="expSelect">
       <option value="pushPullPerception">推拉知觉范式</option>
       <option value="steadyStateContrast">稳态对比度响应范式</option>
@@ -38,21 +43,64 @@
   </div>
 
   <div class="parameters">
-    <div class="param"><label>频率1 (Hz):</label><input type="range" id="frequency1" min="4" max="20" step="0.5"><span id="freq1Val"></span></div>
-    <div class="param"><label>频率2 (Hz):</label><input type="range" id="frequency2" min="4" max="20" step="0.5"><span id="freq2Val"></span></div>
-    <div class="param"><label>对比度:</label><input type="range" id="contrast" min="0.1" max="1" step="0.05"><span id="contrastVal"></span></div>
-    <div class="param"><label>时长 (s):</label><input type="range" id="duration" min="5" max="120" step="5"><span id="durationVal"></span></div>
-    <div class="param"><label>重复次数:</label><input type="number" id="repetitions" min="1" max="10"><span></span></div>
-    <div class="param"><label>休息间隔 (s):</label><input type="range" id="restInterval" min="1" max="20" step="1"><span id="restVal"></span></div>
-    <div class="param"><label>空间频率:</label><input type="range" id="spatialFreq" min="1" max="20" step="0.5"><span id="spatialVal"></span></div>
-    <div class="param"><label>视距 (cm):</label><input type="range" id="viewingDistance" min="30" max="100" step="1"><span id="viewVal"></span></div>
-    <div class="param"><label>左眼优势:</label><input type="checkbox" id="eyeDominance"></div>
-    <div class="param"><label>启用运动:</label><input type="checkbox" id="motionEnabled"></div>
-    <div class="param"><label>运动方向:</label>
+    <div class="param">
+      <label>频率1 (Hz):</label>
+      <input type="range" id="frequency1" min="4" max="20" step="0.5" value="8">
+      <span id="freq1Val"></span>
+    </div>
+    <div class="param">
+      <label>频率2 (Hz):</label>
+      <input type="range" id="frequency2" min="4" max="20" step="0.5" value="12">
+      <span id="freq2Val"></span>
+    </div>
+    <div class="param">
+      <label>对比度:</label>
+      <input type="range" id="contrast" min="0.1" max="1" step="0.05" value="0.5">
+      <span id="contrastVal"></span>
+    </div>
+    <div class="param">
+      <label>时长 (s):</label>
+      <input type="range" id="duration" min="5" max="120" step="5" value="20">
+      <span id="durationVal"></span>
+    </div>
+    <div class="param">
+      <label>重复次数:</label>
+      <input type="number" id="repetitions" min="1" max="10" value="1">
+      <span></span>
+    </div>
+    <div class="param">
+      <label>休息间隔 (s):</label>
+      <input type="range" id="restInterval" min="1" max="20" step="1" value="5">
+      <span id="restVal"></span>
+    </div>
+    <div class="param">
+      <label>空间频率:</label>
+      <input type="range" id="spatialFreq" min="1" max="20" step="0.5" value="10">
+      <span id="spatialVal"></span>
+    </div>
+    <div class="param">
+      <label>视距 (cm):</label>
+      <input type="range" id="viewingDistance" min="30" max="100" step="1" value="57">
+      <span id="viewVal"></span>
+    </div>
+    <div class="param">
+      <label>左眼优势:</label>
+      <input type="checkbox" id="eyeDominance">
+    </div>
+    <div class="param">
+      <label>启用运动:</label>
+      <input type="checkbox" id="motionEnabled">
+    </div>
+    <div class="param">
+      <label>运动方向:</label>
       <label><input type="radio" name="motionDir" value="horizontal" checked> 水平</label>
       <label><input type="radio" name="motionDir" value="vertical"> 垂直</label>
     </div>
-    <div class="param"><label>运动速度:</label><input type="range" id="motionSpeed" min="0" max="5" step="0.1"><span id="motionVal"></span></div>
+    <div class="param">
+      <label>运动速度:</label>
+      <input type="range" id="motionSpeed" min="0" max="5" step="0.1" value="1">
+      <span id="motionVal"></span>
+    </div>
   </div>
 
   <canvas id="stimulusCanvas" width="600" height="300"></canvas>
@@ -91,43 +139,41 @@
 
     // UI 元素
     const expSelect = document.getElementById('expSelect');
-    const descEl = document.getElementById('description');
-    const infoEl = document.getElementById('info');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const resetBtn = document.getElementById('resetBtn');
+    const descEl    = document.getElementById('description');
+    const infoEl    = document.getElementById('info');
+    const startBtn  = document.getElementById('startBtn');
+    const stopBtn   = document.getElementById('stopBtn');
+    const resetBtn  = document.getElementById('resetBtn');
 
     // 绑定参数输入
-    function bindParam(id, key, displayId, transform=(v=>v)) {
-      const el = document.getElementById(id);
-      const disp = document.getElementById(displayId);
+    function bindParam(id, key, displayId, transform = v => v) {
+      const el   = document.getElementById(id);
+      const disp = displayId ? document.getElementById(displayId) : null;
       function update() {
-        params[key] = transform(el.type==='checkbox' ? el.checked : parseFloat(el.value));
-        if (disp) disp.textContent = el.type === 'checkbox' ? el.checked : el.value + (displayId === 'contrastVal' ? '' : '');
-        
-        // 通知 Swift 端参数变化
-        window.webkit.messageHandlers.parameterChange.postMessage({
-          parameter: key,
-          value: params[key]
-        });
+        params[key] = transform(el.type === 'checkbox' ? el.checked : parseFloat(el.value));
+        if (disp) disp.textContent = el.type === 'checkbox' ? el.checked : el.value;
       }
       el.addEventListener('input', update);
       update();
     }
-    bindParam('frequency1','frequency1','freq1Val');
-    bindParam('frequency2','frequency2','freq2Val');
-    bindParam('contrast','contrast','contrastVal',v=>v);
-    bindParam('duration','duration','durationVal');
-    bindParam('repetitions','repetitions',null); document.getElementById('repetitions').addEventListener('change', e=>params.repetitions=parseInt(e.target.value));
-    bindParam('restInterval','restInterval','restVal');
-    bindParam('spatialFreq','spatialFreq','spatialVal');
+    bindParam('frequency1', 'frequency1', 'freq1Val');
+    bindParam('frequency2', 'frequency2', 'freq2Val');
+    bindParam('contrast',   'contrast',   'contrastVal');
+    bindParam('duration',   'duration',   'durationVal');
+    bindParam('repetitions','repetitions',null, v => parseInt(v, 10));
+    document.getElementById('repetitions')
+            .addEventListener('change', e => params.repetitions = parseInt(e.target.value, 10));
+    bindParam('restInterval',   'restInterval',   'restVal');
+    bindParam('spatialFreq',    'spatialFreq',    'spatialVal');
     bindParam('viewingDistance','viewingDistance','viewVal');
-    bindParam('eyeDominance','eyeDominance',null);
-    bindParam('motionEnabled','motionEnabled',null);
-    document.getElementsByName('motionDir').forEach(radio=>radio.addEventListener('change', e=>params.motionDirection=e.target.value));
-    bindParam('motionSpeed','motionSpeed','motionVal');
+    bindParam('eyeDominance',   'eyeDominance',   null, v => v);
+    bindParam('motionEnabled',  'motionEnabled',  null, v => v);
+    document.getElementsByName('motionDir')
+            .forEach(r => r.addEventListener('change', e => params.motionDirection = e.target.value));
+    bindParam('motionSpeed', 'motionSpeed', 'motionVal');
 
-    expSelect.addEventListener('change', ()=>{
+    // 每次切换范式时更新描述
+    expSelect.addEventListener('change', () => {
       descEl.textContent = experimentDescriptions[expSelect.value];
     });
     descEl.textContent = experimentDescriptions[expSelect.value];
@@ -199,7 +245,7 @@
     function resetExperiment(){ stopExperiment(); ctx.clearRect(0,0,canvas.width,canvas.height); infoEl.textContent=''; }
 
     startBtn.addEventListener('click', startExperiment);
-    stopBtn.addEventListener('click', stopExperiment);
+    stopBtn.addEventListener('click',  stopExperiment);
     resetBtn.addEventListener('click', resetExperiment);
   </script>
 </body>
