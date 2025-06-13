@@ -211,8 +211,8 @@
     bindParam('viewingDistance','viewingDistance','viewVal');
     bindParam('eyeDominance','eyeDominance',null, v=>v);
     bindParam('motionEnabled','motionEnabled',null, v=>v);
-    document.getElementsByName('motionDir').forEach(r => 
-      r.addEventListener('change', e=> params.motionDirection = e.target.value)
+    document.querySelectorAll("input[name='motionDir']")
+      .forEach(r => r.addEventListener('change', e => params.motionDirection = e.target.value));
     );
     bindParam('motionSpeed','motionSpeed','motionVal');
 
