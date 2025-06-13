@@ -218,7 +218,7 @@
       }
       // 信息展示
       const elapsed = Math.floor(t);
-      infoEl.textContent = 时间: ${elapsed}s / ${params.duration}s;
+      infoEl.textContent = `时间: ${elapsed}s / ${params.duration}s`;
       if(elapsed>=params.duration) stopExperiment();
       else requestAnimationFrame(render);
     }
@@ -237,7 +237,7 @@
       ctx.putImageData(imgData,x,y);
     }
     function drawCircle(cx,cy,r){ ctx.strokeStyle='red'; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.stroke(); }
-    function drawFlickerCircle(cx,cy,r,freq,contrast){ const t=(Date.now()-startTime)/1000; const alpha=(Math.sin(2*Math.PI*freq*t)*0.5+0.5)*contrast; ctx.fillStyle=rgba(255,255,255,${alpha}); ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.fill(); }
+    function drawFlickerCircle(cx,cy,r,freq,contrast){ const t=(Date.now()-startTime)/1000; const alpha=(Math.sin(2*Math.PI*freq*t)*0.5+0.5)*contrast; ctx.fillStyle=`rgba(255,255,255,${alpha})`; ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI); ctx.fill(); }
 
     // 控制函数
     function startExperiment(){ if(isRunning) return; isRunning=true; startTime=Date.now(); stopBtn.disabled=false; startBtn.disabled=true; render(); }
