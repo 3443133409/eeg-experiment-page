@@ -5,106 +5,178 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EEG 实验控制页面</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
-    h1 { text-align: center; color: #333; margin-bottom: 20px; }
-    .controls, .parameters {
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0; padding: 0;
+      background: #f0f2f5;
+      display: flex; flex-direction: column;
+      height: 100vh;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin: 16px 0;
+      flex-shrink: 0;
+    }
+
+    /* 整体两栏布局 */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 280px;             /* 缩小参数面板宽度 */
       background: #fff;
-      padding: 15px;
+      padding: 10px;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+      overflow-y: auto;
+    }
+    .content {
+      flex: 1;                  /* 刺激区占满剩余空间 */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+    }
+
+    /* 控件和参数区 */
+    .controls, .parameters {
+      margin-bottom: 16px;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
+      padding: 12px;
     }
-    .controls button { margin-right: 10px; padding: 8px 16px; font-size: 1em; }
-    .parameters label { display: inline-block; width: 120px; }
-    .parameters .param { margin-bottom: 10px; }
-    #stimulusCanvas { background: #222; display: block; margin: 0 auto; border-radius: 8px; }
-    #description { margin-top: 10px; font-size: 0.95em; color: #555; }
-    .info { margin-top: 10px; font-size: 0.9em; color: #444; }
+    .controls label, .parameters label {
+      display: inline-block;
+      width: 100px;
+      font-size: 0.9em;
+    }
+    .controls select, .controls button {
+      font-size: 0.9em;
+    }
+    .controls button {
+      margin-right: 8px;
+      padding: 6px 12px;
+    }
+    .parameters .param {
+      margin-bottom: 8px;
+      font-size: 0.85em;
+    }
+    .parameters input[type=range],
+    .parameters input[type=number] {
+      width: 120px;
+      vertical-align: middle;
+    }
+    .parameters span {
+      display: inline-block; width: 30px;
+      text-align: right;
+    }
+
+    /* 刺激画布 */
+    #stimulusCanvas {
+      flex: 1;               /* 画布占满主区 */
+      width: 100%;
+      background: #222;
+      border-radius: 8px;
+    }
+    .info {
+      margin-top: 8px;
+      font-size: 0.9em;
+      color: #444;
+    }
   </style>
 </head>
 <body>
   <h1>EEG 实验控制平台</h1>
-  <div class="controls">
-    <label for="expSelect">实验范式:</label>
-    <select id="expSelect">
-      <option value="pushPullPerception">推拉知觉范式</option>
-      <option value="steadyStateContrast">稳态对比度响应范式</option>
-      <option value="monocularLearning">单眼知觉学习范式</option>
-      <option value="binocularInteraction">双眼交互范式</option>
-      <option value="centralPeripheralSSVEP">中央与周边SSVEP范式</option>
-      <option value="nonlinearVision">非线性视觉恢复范式</option>
-    </select>
-    <div id="description"></div>
-    <div style="margin-top:10px;">
-      <button id="startBtn">开始</button>
-      <button id="stopBtn" disabled>停止</button>
-      <button id="resetBtn">重置</button>
+  <div class="main">
+    <!-- 左侧：控件 + 参数 -->
+    <div class="sidebar">
+      <div class="controls">
+        <label for="expSelect">实验范式:</label>
+        <select id="expSelect">
+          <option value="pushPullPerception">推拉知觉范式</option>
+          <option value="steadyStateContrast">稳态对比度响应范式</option>
+          <option value="monocularLearning">单眼知觉学习范式</option>
+          <option value="binocularInteraction">双眼交互范式</option>
+          <option value="centralPeripheralSSVEP">中央与周边SSVEP范式</option>
+          <option value="nonlinearVision">非线性视觉恢复范式</option>
+        </select>
+        <div id="description"></div>
+        <div style="margin-top:10px;">
+          <button id="startBtn">开始</button>
+          <button id="stopBtn" disabled>停止</button>
+          <button id="resetBtn">重置</button>
+        </div>
+      </div>
+      <div class="parameters">
+        <div class="param">
+          <label>频率1 (Hz):</label>
+          <input type="range" id="frequency1" min="4" max="20" step="0.5" value="8">
+          <span id="freq1Val"></span>
+        </div>
+        <div class="param">
+          <label>频率2 (Hz):</label>
+          <input type="range" id="frequency2" min="4" max="20" step="0.5" value="12">
+          <span id="freq2Val"></span>
+        </div>
+        <div class="param">
+          <label>对比度:</label>
+          <input type="range" id="contrast" min="0.1" max="1" step="0.05" value="0.5">
+          <span id="contrastVal"></span>
+        </div>
+        <div class="param">
+          <label>时长 (s):</label>
+          <input type="range" id="duration" min="5" max="120" step="5" value="20">
+          <span id="durationVal"></span>
+        </div>
+        <div class="param">
+          <label>重复次数:</label>
+          <input type="number" id="repetitions" min="1" max="10" value="1">
+        </div>
+        <div class="param">
+          <label>休息 (s):</label>
+          <input type="range" id="restInterval" min="1" max="20" step="1" value="5">
+          <span id="restVal"></span>
+        </div>
+        <div class="param">
+          <label>空间频率:</label>
+          <input type="range" id="spatialFreq" min="1" max="20" step="0.5" value="10">
+          <span id="spatialVal"></span>
+        </div>
+        <div class="param">
+          <label>视距 (cm):</label>
+          <input type="range" id="viewingDistance" min="30" max="100" step="1" value="57">
+          <span id="viewVal"></span>
+        </div>
+        <div class="param">
+          <label>左眼优势:</label>
+          <input type="checkbox" id="eyeDominance">
+        </div>
+        <div class="param">
+          <label>启用运动:</label>
+          <input type="checkbox" id="motionEnabled">
+        </div>
+        <div class="param">
+          <label>运动方向:</label>
+          <label><input type="radio" name="motionDir" value="horizontal" checked> 水平</label>
+          <label><input type="radio" name="motionDir" value="vertical"> 垂直</label>
+        </div>
+        <div class="param">
+          <label>运动速度:</label>
+          <input type="range" id="motionSpeed" min="0" max="5" step="0.1" value="1">
+          <span id="motionVal"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：放大后的刺激画布 -->
+    <div class="content">
+      <canvas id="stimulusCanvas" width="600" height="300"></canvas>
+      <div class="info" id="info"></div>
     </div>
   </div>
-
-  <div class="parameters">
-    <div class="param">
-      <label>频率1 (Hz):</label>
-      <input type="range" id="frequency1" min="4" max="20" step="0.5" value="8">
-      <span id="freq1Val"></span>
-    </div>
-    <div class="param">
-      <label>频率2 (Hz):</label>
-      <input type="range" id="frequency2" min="4" max="20" step="0.5" value="12">
-      <span id="freq2Val"></span>
-    </div>
-    <div class="param">
-      <label>对比度:</label>
-      <input type="range" id="contrast" min="0.1" max="1" step="0.05" value="0.5">
-      <span id="contrastVal"></span>
-    </div>
-    <div class="param">
-      <label>时长 (s):</label>
-      <input type="range" id="duration" min="5" max="120" step="5" value="20">
-      <span id="durationVal"></span>
-    </div>
-    <div class="param">
-      <label>重复次数:</label>
-      <input type="number" id="repetitions" min="1" max="10" value="1">
-      <span></span>
-    </div>
-    <div class="param">
-      <label>休息间隔 (s):</label>
-      <input type="range" id="restInterval" min="1" max="20" step="1" value="5">
-      <span id="restVal"></span>
-    </div>
-    <div class="param">
-      <label>空间频率:</label>
-      <input type="range" id="spatialFreq" min="1" max="20" step="0.5" value="10">
-      <span id="spatialVal"></span>
-    </div>
-    <div class="param">
-      <label>视距 (cm):</label>
-      <input type="range" id="viewingDistance" min="30" max="100" step="1" value="57">
-      <span id="viewVal"></span>
-    </div>
-    <div class="param">
-      <label>左眼优势:</label>
-      <input type="checkbox" id="eyeDominance">
-    </div>
-    <div class="param">
-      <label>启用运动:</label>
-      <input type="checkbox" id="motionEnabled">
-    </div>
-    <div class="param">
-      <label>运动方向:</label>
-      <label><input type="radio" name="motionDir" value="horizontal" checked> 水平</label>
-      <label><input type="radio" name="motionDir" value="vertical"> 垂直</label>
-    </div>
-    <div class="param">
-      <label>运动速度:</label>
-      <input type="range" id="motionSpeed" min="0" max="5" step="0.1" value="1">
-      <span id="motionVal"></span>
-    </div>
-  </div>
-
-  <canvas id="stimulusCanvas" width="600" height="300"></canvas>
-  <div class="info" id="info"></div>
 
   <script>
     // 参数与描述字典
